@@ -1,0 +1,8 @@
+obj/
+obj-release/
+obj-test/
+obj-test-release/
+obj-mutant/
+gnatprove/
+quorum
+test/harness

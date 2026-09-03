@@ -1,0 +1,742 @@
+<title>Release Interlock</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&display=swap">
+<style>
+  :root {
+    --ground:   #eef0f3;
+    --panel:    #ffffff;
+    --sunk:     #e4e8ed;
+    --ink:      #14181f;
+    --muted:    #5b6472;
+    --line:     #d2d8e0;
+    --verified: #0f6e5c;
+    --armed:    #b4610a;
+    --refused:  #a32320;
+    --key-body: #3a424f;
+    --key-gold: #b98b2e;
+
+    --sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    --cond: "IBM Plex Sans Condensed", "IBM Plex Sans", ui-sans-serif, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:   #12151a;
+      --panel:    #1a1f27;
+      --sunk:     #0d1014;
+      --ink:      #e6eaf0;
+      --muted:    #8d97a6;
+      --line:     #2a313c;
+      --verified: #3fbfa0;
+      --armed:    #e0a44c;
+      --refused:  #e1706b;
+      --key-body: #2b323d;
+      --key-gold: #d8ab4c;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:   #12151a;
+    --panel:    #1a1f27;
+    --sunk:     #0d1014;
+    --ink:      #e6eaf0;
+    --muted:    #8d97a6;
+    --line:     #2a313c;
+    --verified: #3fbfa0;
+    --armed:    #e0a44c;
+    --refused:  #e1706b;
+    --key-body: #2b323d;
+    --key-gold: #d8ab4c;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.6;
+    margin: 0;
+    padding: 0 20px 72px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 940px; margin: 0 auto; }
+  .prose { max-width: 64ch; }
+
+  .label {
+    font-family: var(--cond);
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* ---------------------------------------------------------- masthead -- */
+  header { padding: 56px 0 28px; border-bottom: 1px solid var(--line); }
+  h1 {
+    font-family: var(--cond);
+    font-weight: 700;
+    font-size: clamp(34px, 6vw, 54px);
+    line-height: 1.02;
+    letter-spacing: -0.015em;
+    margin: 10px 0 14px;
+    text-wrap: balance;
+  }
+  header p { color: var(--muted); margin: 0; max-width: 62ch; }
+  header p strong { color: var(--ink); font-weight: 600; }
+
+  /* ------------------------------------------------------------ panel -- */
+  section { padding: 34px 0; border-bottom: 1px solid var(--line); }
+  h2 {
+    font-family: var(--cond);
+    font-weight: 700;
+    font-size: 20px;
+    letter-spacing: 0.01em;
+    margin: 0 0 6px;
+  }
+  section > p { color: var(--muted); margin: 0 0 22px; max-width: 64ch; }
+
+  .console {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .console-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    padding: 10px 14px;
+    background: var(--sunk);
+    border-bottom: 1px solid var(--line);
+  }
+  .console-head .label { margin-right: auto; }
+
+  button.scenario {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--muted);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    padding: 5px 9px;
+    cursor: pointer;
+    transition: color .15s, border-color .15s;
+  }
+  button.scenario:hover { color: var(--ink); border-color: var(--muted); }
+  button.scenario[aria-pressed="true"] {
+    color: var(--panel);
+    background: var(--ink);
+    border-color: var(--ink);
+  }
+  button.scenario:focus-visible { outline: 2px solid var(--armed); outline-offset: 2px; }
+
+  /* -------------------------------------------------------------- keys -- */
+  .keys {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--line);
+  }
+  @media (max-width: 620px) { .keys { grid-template-columns: 1fr; } }
+
+  .keyslot {
+    background: var(--panel);
+    padding: 20px 16px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    transition: background .3s;
+  }
+  .keyslot[data-state="signed"] { background: color-mix(in srgb, var(--verified) 8%, var(--panel)); }
+  .keyslot[data-state="void"]   { background: color-mix(in srgb, var(--refused) 8%, var(--panel)); }
+
+  /* the physical object: a FIDO2 key, drawn rather than pictured */
+  .fob { position: relative; width: 44px; height: 86px; }
+  .fob .shell {
+    position: absolute; inset: 12px 0 0;
+    background: var(--key-body);
+    border-radius: 6px 6px 9px 9px;
+  }
+  .fob .usb {
+    position: absolute; top: 0; left: 13px;
+    width: 18px; height: 15px;
+    background: color-mix(in srgb, var(--key-gold) 70%, #8a8f98);
+    border-radius: 2px 2px 0 0;
+  }
+  .fob .touch {
+    position: absolute; top: 34px; left: 50%;
+    transform: translateX(-50%);
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    border: 2px solid var(--key-gold);
+    background: transparent;
+    transition: background .25s, box-shadow .25s;
+  }
+  .keyslot[data-state="touching"] .touch { animation: pulse 900ms ease-out infinite; }
+  .keyslot[data-state="signed"] .touch,
+  .keyslot[data-state="void"] .touch {
+    background: var(--key-gold);
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--key-gold) 22%, transparent);
+  }
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--key-gold) 55%, transparent); }
+    100% { box-shadow: 0 0 0 16px color-mix(in srgb, var(--key-gold) 0%, transparent); }
+  }
+  .fob .slotno {
+    position: absolute; bottom: 8px; left: 0; right: 0;
+    text-align: center;
+    font-family: var(--mono); font-size: 10px;
+    color: color-mix(in srgb, var(--key-gold) 80%, var(--panel));
+  }
+
+  .who { text-align: center; }
+  .who b { font-family: var(--mono); font-size: 12.5px; font-weight: 500; display: block; }
+  .who span { font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
+  .who em {
+    font-style: normal;
+    font-family: var(--cond); font-weight: 700;
+    font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--armed);
+  }
+
+  .stamp {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    white-space: pre-line;
+    min-height: 36px;
+    text-align: center;
+    color: var(--muted);
+    line-height: 1.45;
+  }
+  .stamp.ok   { color: var(--verified); }
+  .stamp.bad  { color: var(--refused); }
+
+  /* ------------------------------------------------------------ queue -- */
+  .queue { padding: 20px 16px; border-top: 1px solid var(--line); }
+  .track {
+    position: relative;
+    height: 6px;
+    background: var(--sunk);
+    border-radius: 3px;
+    margin: 14px 0 10px;
+    overflow: hidden;
+  }
+  .fill {
+    position: absolute; inset: 0 auto 0 0;
+    width: 0%;
+    background: var(--armed);
+    transition: width .2s linear;
+  }
+  .queue[data-state="run"] .fill { background: var(--armed); }
+  .queue[data-state="done"] .fill { background: var(--verified); }
+  .queue[data-state="killed"] .fill { background: var(--refused); }
+  .ticks {
+    display: flex; justify-content: space-between;
+    font-family: var(--mono); font-size: 10px; color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .clock {
+    font-family: var(--mono);
+    font-size: 26px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+  .queue-top { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  .queue-top .label { margin-right: auto; }
+  .cancel-note { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+
+  /* ----------------------------------------------------------- verdict -- */
+  .verdict {
+    display: flex; align-items: center; gap: 14px;
+    padding: 16px;
+    border-top: 1px solid var(--line);
+    background: var(--sunk);
+  }
+  .lamp {
+    width: 15px; height: 15px; border-radius: 50%; flex: none;
+    background: var(--muted); opacity: .3;
+    transition: background .3s, opacity .3s, box-shadow .3s;
+  }
+  .verdict[data-v="allow"] .lamp {
+    background: var(--verified); opacity: 1;
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--verified) 20%, transparent);
+  }
+  .verdict[data-v="refuse"] .lamp {
+    background: var(--refused); opacity: 1;
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--refused) 20%, transparent);
+  }
+  .verdict-text b {
+    font-family: var(--mono); font-size: 14px; font-weight: 600;
+    display: block; letter-spacing: 0.02em;
+  }
+  .verdict[data-v="allow"] .verdict-text b { color: var(--verified); }
+  .verdict[data-v="refuse"] .verdict-text b { color: var(--refused); }
+  .verdict-text span { font-size: 12.5px; color: var(--muted); }
+
+  /* ------------------------------------------------------------ spark -- */
+  .spark { margin-top: 26px; }
+  .conjuncts { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 1px; background: var(--line); }
+  .conjuncts li {
+    display: grid;
+    grid-template-columns: 26px 1fr auto;
+    gap: 12px;
+    align-items: baseline;
+    padding: 9px 14px;
+    background: var(--panel);
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+  .conjuncts .n { color: var(--muted); font-size: 10.5px; }
+  .conjuncts .c { color: var(--ink); overflow-wrap: anywhere; }
+  .conjuncts .v {
+    font-family: var(--cond); font-weight: 700; font-size: 10px;
+    letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+    opacity: .45;
+  }
+  .conjuncts li[data-h="hold"] .v { color: var(--verified); opacity: 1; }
+  .conjuncts li[data-h="fail"] .v { color: var(--refused); opacity: 1; }
+  .conjuncts li[data-h="fail"] { background: color-mix(in srgb, var(--refused) 7%, var(--panel)); }
+  .conjuncts li[data-h="moot"] .c { opacity: .4; }
+
+  .proofbar {
+    display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: center;
+    margin-top: 16px; padding: 12px 14px;
+    background: var(--sunk); border: 1px solid var(--line); border-radius: 3px;
+    font-family: var(--mono); font-size: 11.5px; color: var(--muted);
+  }
+  .proofbar b { color: var(--verified); font-weight: 600; }
+
+  /* ------------------------------------------------------------- misc -- */
+  table.facts { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  table.facts th, table.facts td {
+    text-align: left; padding: 9px 12px 9px 0;
+    border-bottom: 1px solid var(--line); vertical-align: top;
+  }
+  table.facts th {
+    font-family: var(--cond); font-weight: 700; font-size: 11px;
+    letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+    white-space: nowrap; padding-right: 24px;
+  }
+  table.facts td code { font-family: var(--mono); font-size: 12.5px; }
+  .scroller { overflow-x: auto; }
+  pre {
+    font-family: var(--mono); font-size: 12px; line-height: 1.55;
+    background: var(--sunk); border: 1px solid var(--line); border-radius: 3px;
+    padding: 14px; overflow-x: auto; margin: 0;
+  }
+  footer { padding-top: 30px; color: var(--muted); font-size: 12.5px; }
+  footer code { font-family: var(--mono); }
+  .gaps { padding-left: 20px; margin: 0; color: var(--muted); max-width: 64ch; }
+  .gaps li { margin-bottom: 7px; }
+  .gaps b { color: var(--ink); font-weight: 600; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+  }
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="label">NS · release authorisation · hardpoint 4.4 / 4.5 / 4.7</div>
+  <h1>Release Interlock</h1>
+  <p>Three enrolled hardware keys. <strong>Any two of them</strong> sign the exact commit and
+  artifact digest, the signed <strong>24-hour queue</strong> elapses without anyone cancelling,
+  and only then may the release execute. No single person — and no compromised laptop, stolen
+  token or hostile agent — can complete it alone.</p>
+</header>
+
+<section>
+  <h2>The mechanism</h2>
+  <p>Pick a scenario. Each one below is a test that runs for real in
+  <code>test/run.sh</code>, against genuine Ed25519 keys and genuine
+  <code>ssh-keygen</code> signatures.</p>
+
+  <div class="console">
+    <div class="console-head">
+      <div class="label">Interlock · target P1 · money-egress path</div>
+      <button class="scenario" data-s="pair"   aria-pressed="true">2 of 3</button>
+      <button class="scenario" data-s="twice"  aria-pressed="false">one key twice</button>
+      <button class="scenario" data-s="author" aria-pressed="false">author signs</button>
+      <button class="scenario" data-s="early"  aria-pressed="false">too early</button>
+      <button class="scenario" data-s="cancel" aria-pressed="false">cancelled</button>
+    </div>
+
+    <div class="keys" id="keys">
+      <div class="keyslot" data-slot="1" data-state="idle">
+        <div class="fob"><div class="usb"></div><div class="shell"></div>
+          <div class="touch"></div><div class="slotno">slot 1</div></div>
+        <div class="who"><b>alice@ns.com</b><span>sk-ssh-ed25519</span></div>
+        <div class="stamp" data-stamp="1">awaiting touch</div>
+      </div>
+      <div class="keyslot" data-slot="2" data-state="idle">
+        <div class="fob"><div class="usb"></div><div class="shell"></div>
+          <div class="touch"></div><div class="slotno">slot 2</div></div>
+        <div class="who"><b>bob@ns.com</b><span>sk-ssh-ed25519</span><em>commit author</em></div>
+        <div class="stamp" data-stamp="2">awaiting touch</div>
+      </div>
+      <div class="keyslot" data-slot="3" data-state="idle">
+        <div class="fob"><div class="usb"></div><div class="shell"></div>
+          <div class="touch"></div><div class="slotno">slot 3</div></div>
+        <div class="who"><b>carol@ns.com</b><span>sk-ecdsa-sha2-nistp256</span></div>
+        <div class="stamp" data-stamp="3">awaiting touch</div>
+      </div>
+    </div>
+
+    <div class="queue" id="queue" data-state="idle">
+      <div class="queue-top">
+        <div class="label">Queue delay · signed into the manifest, not chosen by the caller</div>
+        <div class="clock" id="clock">24:00:00</div>
+      </div>
+      <div class="track"><div class="fill" id="fill"></div></div>
+      <div class="ticks">
+        <span>execute_after − 24h</span><span>+12h</span><span>execute_after</span>
+      </div>
+      <div class="cancel-note" id="cancelNote">any quorum member may cancel by digest while this runs</div>
+    </div>
+
+    <div class="verdict" id="verdict" data-v="idle">
+      <div class="lamp"></div>
+      <div class="verdict-text">
+        <b id="vcode">STANDING BY</b>
+        <span id="vwhy">Pick a scenario to run the interlock.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="spark">
+    <div class="label">What SPARK proves · the postcondition of <code>Decide</code></div>
+    <ol class="conjuncts" id="conjuncts">
+      <li data-k="enrolled" data-h="idle"><span class="n">1</span><span class="c">R.Count &gt;= Min_Enrolled</span><span class="v">—</span></li>
+      <li data-k="quorum"   data-h="idle"><span class="n">2</span><span class="c">Members (Verified) &gt;= Threshold</span><span class="v">—</span></li>
+      <li data-k="author"   data-h="idle"><span class="n">3</span><span class="c">not Signed_By_Author (M.Author, R, Verified)</span><span class="v">—</span></li>
+      <li data-k="delay"    data-h="idle"><span class="n">4</span><span class="c">Epoch (Execute_After) − Epoch (Signed_At) &gt;= 86400</span><span class="v">—</span></li>
+      <li data-k="early"    data-h="idle"><span class="n">5</span><span class="c">Epoch (Now) &gt;= Epoch (Execute_After)</span><span class="v">—</span></li>
+      <li data-k="expired"  data-h="idle"><span class="n">6</span><span class="c">Epoch (Now) &lt; Epoch (Expires_At)</span><span class="v">—</span></li>
+      <li data-k="revoked"  data-h="idle"><span class="n">7</span><span class="c">not Revoked</span><span class="v">—</span></li>
+    </ol>
+    <div class="proofbar">
+      <span><b>Success: all checks proved (241 checks)</b></span>
+      <span>GNATprove 16.1.0</span>
+      <span>Alt-Ergo 2.6.1 · CVC5 1.3.2 · Z3 4.15.4</span>
+      <span>0 unproved · 0 suppressed</span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Why the pieces are shaped this way</h2>
+  <div class="scroller">
+  <table class="facts">
+    <tr>
+      <th>Distinct humans</th>
+      <td>The signer set is <code>array (1 .. 8) of Boolean</code>, indexed by enrolment slot. One
+      holder presenting two signature files fills one slot. There is no counter to overflow and no
+      list to deduplicate — <em>two distinct signers</em> is true by construction, not by a check.</td>
+    </tr>
+    <tr>
+      <th>Hardware</th>
+      <td>The roster admits only <code>sk-ssh-ed25519@openssh.com</code> and
+      <code>sk-ecdsa-sha2-nistp256@openssh.com</code>. Any signature OpenSSH accepts against that
+      file was made by a hardware-resident key, so no signature blob has to be parsed to establish
+      it. Enforced once, at the trust root.</td>
+    </tr>
+    <tr>
+      <th>The 24 hours</th>
+      <td>Enforced, not asserted. The gap must be <em>inside the signed bytes</em> and must have
+      elapsed against an internally-read clock. A queued release cannot shorten its own delay;
+      there is no flag that changes the constant. GitHub's wait timer is the mechanism — an admin
+      bypass resets a timer and cannot reset a signed value.</td>
+    </tr>
+    <tr>
+      <th>The cancel path</th>
+      <td>A delay with no cancel path is just latency. Any quorum member appending the queued
+      digest kills the release. An unparseable cancellation list counts as a cancellation.</td>
+    </tr>
+    <tr>
+      <th>No cryptography here</th>
+      <td><code>ssh-keygen -Y verify</code>, absolute path, argument vector, message on stdin,
+      <strong>exit status only</strong> — never parsed output. OpenSSH is already the root of trust
+      for NS commit signing; a second Ed25519 implementation would be a second thing to be wrong.</td>
+    </tr>
+    <tr>
+      <th>Sealed bytes</th>
+      <td>OpenSSH is handed <em>bytes</em>, never a path. The manifest and roster slices that were
+      parsed are copied into a file that is unlinked the instant it is written, so nothing in the
+      filesystem names them and nothing can be swapped between the parse and the verification.
+      Handing over paths instead was the critical bypass two adversarial audits found on 2 September;
+      all six audit findings were in the unproved boundary code, not in the proved core.</td>
+    </tr>
+    <tr>
+      <th>Not YAML</th>
+      <td>The manifest is eight fixed-width ASCII lines, so parsing is index arithmetic. Duplicate
+      keys, reordered fields, anchors, tags, type coercion and unicode confusables aren't defended
+      against — they aren't expressible.</td>
+    </tr>
+    <tr>
+      <th>No dependencies</th>
+      <td>No package manager, no lockfile, no vendored source. The supply chain is GCC and OpenSSH,
+      both already trusted by the rest of the release path. That constraint is what chose SPARK
+      over Rust and Python.</td>
+    </tr>
+  </table>
+  </div>
+</section>
+
+<section>
+  <h2>The manifest each approver signs</h2>
+  <p>276–337 bytes. The signature covers all of it, so an approval for one commit and digest
+  cannot be presented as approval for another.</p>
+  <pre>ns-release-manifest v1
+commit: 4bfc31f51e0000000000000000000000000000ab
+digest: sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
+target: P1
+signed_at: 2026-09-01T09:00:00Z
+execute_after: 2026-09-02T09:00:00Z
+expires_at: 2026-09-05T09:00:00Z
+author: bob@ns.com
+
+$ ssh-keygen -Y sign -f ~/.ssh/id_ed25519_sk -n ns-release manifest
+Confirm user presence for key ED25519-SK ...</pre>
+</section>
+
+<section>
+  <h2>What is still open</h2>
+  <ul class="gaps">
+    <li><b>No signature from real hardware has been through this yet.</b> Producing one needs a
+    physical touch that no automated test can supply. The plumbing is proved end to end against
+    real Ed25519 signatures, and <code>-Y verify</code> takes the same path for both key classes —
+    but that is an argument, not a test. Bench-test with a YubiKey first.</li>
+    <li><b>The clock is trusted.</b> Move the system clock past <code>execute_after</code> and the
+    delay is retired. Nothing in the program can detect that.</li>
+    <li><b>Enrolment is assumed.</b> That a roster key really was generated inside genuine
+    hardware, with a touch required per signature, is established by FIDO attestation at enrolment
+    and by whoever reviews the roster file — not here.</li>
+    <li><b>Build provenance is a separate step.</b> The manifest names a digest; that the digest is
+    what CI built from that commit must be checked in the same job.</li>
+    <li><b>A signature proves origin, never intent.</b> Two genuine holders signing a malicious
+    change passes every check, and always will.</li>
+    <li><b>The proof covers the decision, not the plumbing.</b> Every defect found in this program
+    so far has been in the 431 lines outside SPARK — the filesystem, the clock and the OpenSSH
+    call. That is where the next one will be too.</li>
+  </ul>
+</section>
+
+<footer>
+  <code>experiments/quorum</code> · 561 lines proved, 431 not · <code>SPEC.md</code> carries the
+  threat model, the byte-exact grammars, seventeen numbered gaps and where to attack it ·
+  <code>ADVERSARIAL_AUDIT.md</code> carries the audit and the fixes.
+</footer>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var SLOTS = { alice: 1, bob: 2, carol: 3 };
+  var keys = document.getElementById("keys");
+  var queue = document.getElementById("queue");
+  var fill = document.getElementById("fill");
+  var clock = document.getElementById("clock");
+  var cancelNote = document.getElementById("cancelNote");
+  var verdict = document.getElementById("verdict");
+  var vcode = document.getElementById("vcode");
+  var vwhy = document.getElementById("vwhy");
+  var conjuncts = document.getElementById("conjuncts");
+  var buttons = Array.prototype.slice.call(document.querySelectorAll("button.scenario"));
+
+  var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  var SCENARIOS = {
+    pair: {
+      touches: ["alice", "carol"],
+      run: true,
+      verdict: "ALLOW",
+      why: "Two distinct enrolled holders, neither of them the author, and the signed 24 hours has elapsed.",
+      fails: null,
+      test: "2-of-3: alice and carol authorise the deploy"
+    },
+    twice: {
+      touches: ["alice", "alice"],
+      run: false,
+      verdict: "REFUSE_QUORUM",
+      why: "Both signatures came from slot 1. One holder is one signer — the set has no second bit to set.",
+      fails: "quorum",
+      test: "2-of-3: one holder signing twice is one signer, not two"
+    },
+    author: {
+      touches: ["alice", "bob"],
+      run: false,
+      verdict: "REFUSE_AUTHOR",
+      why: "bob@ns.com wrote the commit. The author's own key cannot complete the pair that approves it.",
+      fails: "author",
+      test: "2-of-3: the author's own key does not complete the pair"
+    },
+    early: {
+      touches: ["alice", "carol"],
+      run: "partial",
+      verdict: "REFUSE_EARLY",
+      why: "Quorum is met, but execution was attempted 4 hours into the 24. The queue is the control, not a formality.",
+      fails: "early",
+      test: "decide: refuses before the queue delay has elapsed"
+    },
+    cancel: {
+      touches: ["alice", "carol"],
+      run: "cancelled",
+      verdict: "REFUSE_REVOKED",
+      why: "carol@ns.com appended the queued digest to the cancellation list at +9h. This is what the delay is for.",
+      fails: "revoked",
+      test: "decide: refuses a cancelled release inside the window"
+    }
+  };
+
+  var ORDER = ["enrolled", "quorum", "author", "delay", "early", "expired", "revoked"];
+  var timers = [];
+  var raf = null;
+
+  function clearAll() {
+    timers.forEach(clearTimeout);
+    timers = [];
+    if (raf) { cancelAnimationFrame(raf); raf = null; }
+  }
+  function after(ms, fn) { timers.push(setTimeout(fn, reduced ? 0 : ms)); }
+
+  function slotEl(n) { return keys.querySelector('.keyslot[data-slot="' + n + '"]'); }
+  function stampEl(n) { return keys.querySelector('.stamp[data-stamp="' + n + '"]'); }
+
+  function reset() {
+    clearAll();
+    [1, 2, 3].forEach(function (n) {
+      slotEl(n).dataset.state = "idle";
+      var s = stampEl(n);
+      s.className = "stamp";
+      s.textContent = "awaiting touch";
+    });
+    queue.dataset.state = "idle";
+    fill.style.width = "0%";
+    clock.textContent = "24:00:00";
+    cancelNote.textContent = "any quorum member may cancel by digest while this runs";
+    verdict.dataset.v = "idle";
+    vcode.textContent = "STANDING BY";
+    vwhy.textContent = "Pick a scenario to run the interlock.";
+    ORDER.forEach(function (k) {
+      var li = conjuncts.querySelector('li[data-k="' + k + '"]');
+      li.dataset.h = "idle";
+      li.querySelector(".v").textContent = "—";
+    });
+  }
+
+  function setClock(secondsLeft) {
+    var s = Math.max(0, Math.round(secondsLeft));
+    var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), q = s % 60;
+    clock.textContent =
+      String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0") + ":" + String(q).padStart(2, "0");
+  }
+
+  // 24h compressed into 3.6s of wall clock.
+  function runQueue(mode, done) {
+    var TOTAL = 3600;
+    var stopAt = mode === "partial" ? 4 / 24 : (mode === "cancelled" ? 9 / 24 : 1);
+    queue.dataset.state = "run";
+    if (reduced) {
+      fill.style.width = (stopAt * 100) + "%";
+      setClock(86400 * (1 - stopAt));
+      done();
+      return;
+    }
+    var t0 = performance.now();
+    (function step(now) {
+      var p = Math.min((now - t0) / TOTAL, stopAt);
+      fill.style.width = (p * 100) + "%";
+      setClock(86400 * (1 - p));
+      if (p < stopAt) { raf = requestAnimationFrame(step); }
+      else { raf = null; done(); }
+    })(t0);
+  }
+
+  function markConjuncts(failKey) {
+    var stop = failKey ? ORDER.indexOf(failKey) : ORDER.length;
+    ORDER.forEach(function (k, i) {
+      var li = conjuncts.querySelector('li[data-k="' + k + '"]');
+      var v = li.querySelector(".v");
+      after(90 * i, function () {
+        if (i < stop) { li.dataset.h = "hold"; v.textContent = "holds"; }
+        else if (i === stop) { li.dataset.h = "fail"; v.textContent = "fails"; }
+        else { li.dataset.h = "moot"; v.textContent = "not reached"; }
+      });
+    });
+  }
+
+  function finish(sc) {
+    verdict.dataset.v = sc.verdict === "ALLOW" ? "allow" : "refuse";
+    vcode.textContent = sc.verdict;
+    vwhy.textContent = sc.why;
+    markConjuncts(sc.fails);
+  }
+
+  function play(name) {
+    reset();
+    var sc = SCENARIOS[name];
+    var t = 260;
+
+    var seen = {};
+    sc.touches.forEach(function (who, idx) {
+      var n = SLOTS[who];
+      var repeat = !!seen[who];
+      seen[who] = true;
+
+      after(t, function () {
+        slotEl(n).dataset.state = "touching";
+        stampEl(n).textContent = "confirm user presence…";
+      });
+      after(t + 700, function () {
+        var isAuthorFail = (sc.fails === "author" && who === "bob");
+        //  A repeated signature is genuine; it just credits no second slot, so
+        //  slot 1 stays signed rather than pretending the first one failed.
+        slotEl(n).dataset.state = isAuthorFail ? "void" : "signed";
+        var s = stampEl(n);
+        s.className = "stamp " + (repeat || isAuthorFail ? "bad" : "ok");
+        s.textContent = repeat
+          ? "signature " + (idx + 1) + " · slot 1 already filled\ncredits no second signer"
+          : (isAuthorFail
+              ? "signed · but this is the commit author\ncannot approve their own release"
+              : "signed · verified by ssh-keygen -Y verify\nnamespace ns-release");
+      });
+      t += 1000;
+    });
+
+    after(t, function () {
+      if (!sc.run) { finish(sc); return; }
+      cancelNote.textContent = sc.run === "cancelled"
+        ? "carol@ns.com is about to cancel by digest…"
+        : "any quorum member may cancel by digest while this runs";
+      runQueue(sc.run, function () {
+        if (sc.run === "cancelled") {
+          queue.dataset.state = "killed";
+          cancelNote.textContent = "cancelled at +9h — digest appended to the cancellation list";
+        } else if (sc.run === "partial") {
+          queue.dataset.state = "run";
+          cancelNote.textContent = "execution attempted at +4h, with 20h still to run";
+        } else {
+          queue.dataset.state = "done";
+          cancelNote.textContent = "24h elapsed, nobody cancelled";
+        }
+        after(200, function () { finish(sc); });
+      });
+    });
+  }
+
+  buttons.forEach(function (b) {
+    b.addEventListener("click", function () {
+      buttons.forEach(function (o) { o.setAttribute("aria-pressed", String(o === b)); });
+      play(b.dataset.s);
+    });
+  });
+
+  reset();
+  after(400, function () { play("pair"); });
+})();
+</script>

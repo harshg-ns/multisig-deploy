@@ -1,0 +1,54 @@
+project Quorum is
+
+   --  Two modes, because a debug profile and a shipping profile want different
+   --  things. Both keep -gnata: the assertions ARE the control. Decide's
+   --  precondition, Read_File's postcondition and the environment invariant in
+   --  Verify are all runtime-checked, and a build without -gnata silently
+   --  drops them while looking identical.
+   type Build_Mode is ("dev", "release");
+   Mode : Build_Mode := external ("QUORUM_MODE", "dev");
+
+   --  Section garbage collection is spelled differently by the two linkers.
+   type Link_GC_Kind is ("dead_strip", "gc_sections");
+   Link_GC : Link_GC_Kind :=
+     external ("QUORUM_LINK_GC", "dead_strip");   --  Apple ld; GNU ld wants gc_sections
+
+   for Source_Dirs use ("src");
+   for Exec_Dir use ".";
+   for Main use ("main.adb");
+
+   case Mode is
+      when "dev"     => for Object_Dir use "obj";
+      when "release" => for Object_Dir use "obj-release";
+   end case;
+
+   Common := ("-gnat2022", "-gnatwa", "-gnatVa", "-gnata", "-gnatf",
+              "-fstack-check");
+
+   package Compiler is
+      case Mode is
+         when "dev" =>
+            for Default_Switches ("Ada") use Common & ("-O1", "-g");
+         when "release" =>
+            for Default_Switches ("Ada") use
+              Common & ("-Os", "-ffunction-sections", "-fdata-sections");
+      end case;
+   end Compiler;
+
+   package Linker is
+      case Mode is
+         when "dev" =>
+            null;
+         when "release" =>
+            case Link_GC is
+               when "dead_strip"  => for Default_Switches ("Ada") use ("-Wl,-dead_strip");
+               when "gc_sections" => for Default_Switches ("Ada") use ("-Wl,--gc-sections");
+            end case;
+      end case;
+   end Linker;
+
+   package Builder is
+      for Executable ("main.adb") use "quorum";
+   end Builder;
+
+end Quorum;
